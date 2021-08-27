@@ -6,8 +6,9 @@ static const uint8_t tonePin = 2;
 DS3231 rtc(SDA, SCL);
 U8GLIB_PCD8544 u8g(7, 6, 4, 5, 3);  // CLK=7, DIN=6, CE=4, DC=5, RST=3
 Time  t;
-signed long wdate = 1626201000; // 13.7.21 19:30 - unix showtime!
+signed long wdate = 1657737000; // 13.7.21 19:30@ - unix showtime! (Setting time to 1830 Considering local time would be GMT+2 & Italy's GMT+1)
 
+String timeStr;
 const uint8_t ramm_bitmap[] PROGMEM = {
   0x00, 0x00, 0x3f, 0xc3, 0xfc, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00,
   0x20, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00,
@@ -35,11 +36,23 @@ const uint8_t rammtxt_bitmap[] PROGMEM = {
 0x99, 0x0d, 0x98, 0xca, 0x2d, 0xad, 0xaf, 0x99, 0xed, 0x98
 };
 
+String addZero(int num){  //this adds zeros to the time integers, and turns them to strings before printing.
+  if (num < 10){
+    String ret = "0" + String(num);
+    return ret;
+}
+return String(num);
+}
+
 void draw(void) {
+String timeStr = addZero(t.hour) + ":" + addZero(t.min) + ":" + addZero(t.sec);
+
 u8g.drawBitmapP( 15, 0, 7, 6, rammtxt_bitmap);  // I bitmap
 u8g.drawBitmapP( 35, 7, 7, 40, ramm_bitmap);  // I bitmap
   u8g.setFont(u8g_font_fixed_v0);  // select a big font
-  u8g.drawStr(0, 16, rtc.getTimeStr());  // put string of display at position X, Y
+  //u8g.drawStr(0, 16, rtc.getTimeStr());  // put string of display at position X, Y <<<Direct from RTC, new way puts together a string set above:
+      u8g.setPrintPos(0, 16);
+      u8g.print(timeStr);
   u8g.setFont(u8g_font_u8glib_4);  // select a small font
   u8g.drawStr(0, 25, rtc.getDateStr());
   u8g.setPrintPos(0, 33);
@@ -49,18 +62,19 @@ u8g.drawBitmapP( 35, 7, 7, 40, ramm_bitmap);  // I bitmap
   u8g.setPrintPos(0, 44);
   u8g.print((wdate - rtc.getUnixTime(rtc.getTime()))/60/60/24);
   u8g.setFont(u8g_font_u8glib_4);  // select a smaller font
-  u8g.drawStr(20, 44, " Days");
+  u8g.drawStr(20, 44, "  Days");
 }
 
 void setup(void) {
 rtc.begin();
 Wire.begin();
+pinMode(11, INPUT_PULLUP); //will be defined as "-1" hour setter when grounded
 
-/* this sets time:
+/* this sets time: (Comment out & upload again after setting time)
 
 rtc.setDOW(SUNDAY); // Set Day-of-Week
 
-rtc.setTime(15, 15, 00); // Set the time to 12:00:00 (24hr format)
+rtc.setTime(15, 15, 00); // Set the time to 15:15:00 (24hr format)
 
 rtc.setDate(24, 8, 2020); // Day, Month, Year
 */
@@ -69,6 +83,17 @@ rtc.setDate(24, 8, 2020); // Day, Month, Year
 
 void loop(void) {
 t = rtc.getTime();
+
+if (digitalRead(11) == LOW) { //to check if -1 is active? 
+  if (t.hour == 0){
+    t.hour = 23;
+  }
+  else{
+    t.hour--;
+  }
+}
+
+
 
 /*  // tests all sounds
   for (int i = 0; i < 8; i++) {
